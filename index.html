@@ -582,6 +582,7 @@ function confirmCell(rowId, field) {
 }
 
 async function deleteCell(rowId, field) {
+  if (!isAdmin) return; // safety guard
   const row = rows.find(r => r.id === rowId);
   if (!row) return;
   row[field] = '';
@@ -589,6 +590,8 @@ async function deleteCell(rowId, field) {
   saveLocal();
   renderTable();
   renderPool();
+  // Small delay to avoid Apps Script throttling
+  await new Promise(r => setTimeout(r, 500));
   // Push immediately
   const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
   const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
@@ -614,6 +617,9 @@ async function saveCell(rowId, field) {
   if (row) row[field] = name;
   delete pending[key];
   saveLocal();
+
+  // Small delay to avoid Apps Script throttling
+  await new Promise(r => setTimeout(r, 500));
 
   // Push to sheet
   setSyncStatus('Saving…', '');
@@ -736,9 +742,9 @@ function toggleAdmin() {
     isAdmin = false;
   }
   document.getElementById('admin-panel').style.display = isAdmin ? 'block' : 'none';
-  // Show/hide instruction editor
   document.getElementById('instruction-admin-edit').closest('.admin-section').style.display = isAdmin ? 'block' : 'none';
   renderPool();
+  renderTable(); // re-render table so ✕ buttons appear/disappear correctly
 }
 
 // ── Debounced auto-save ──
