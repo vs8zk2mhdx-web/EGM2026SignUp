@@ -576,12 +576,29 @@ function selectName(rowId, field, name) {
 }
 
 function confirmCell(rowId, field) {
-  const key = `${rowId}-${field}`;
-  const cbId = `cb-${rowId}-${field}`;
-  const btnId = `savebtn-${rowId}-${field}`;
-  const cb = document.getElementById(cbId);
-  const btn = document.getElementById(btnId);
-  if (cb) btn.disabled = !cb.checked;
+  const cb = document.getElementById(`cb-${rowId}-${field}`);
+  const btn = document.getElementById(`savebtn-${rowId}-${field}`);
+  if (cb && btn) btn.disabled = !cb.checked;
+}
+
+async function deleteCell(rowId, field) {
+  const row = rows.find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = '';
+  delete pending[`${rowId}-${field}`];
+  saveLocal();
+  renderTable();
+  renderPool();
+  // Push immediately
+  const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
+  const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
+  const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.success) { setSyncStatus('Saved ✓', 'ok'); toast('Name removed'); }
+    else { setSyncStatus('Save failed', 'err'); toast('Save error — try again'); }
+  } catch(e) { setSyncStatus('Error', 'err'); toast('Could not reach Google Sheets'); }
 }
 
 async function saveCell(rowId, field) {
@@ -686,10 +703,13 @@ function renderTable() {
       // Saved state
       if (savedVal && !pendingVal) {
         const cls = isNotPlaying ? 'cell-saved-np' : 'cell-saved';
+        const deleteBtn = isAdmin
+          ? `<button onclick="deleteCell(${row.id}, '${field}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:inherit;opacity:0.6;padding:0 0 0 6px;line-height:1;" title="Remove">✕</button>`
+          : '';
         return `<div class="cell">
           <div class="${cls}">
             <span>${savedVal}</span>
-            <span class="saved-check">✓</span>
+            <span style="display:flex;align-items:center;gap:2px;"><span class="saved-check">✓</span>${deleteBtn}</span>
           </div>
         </div>`;
       }
