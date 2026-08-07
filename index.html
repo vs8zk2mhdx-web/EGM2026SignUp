@@ -609,51 +609,14 @@ async function saveCell(rowId, field) {
   const btn = document.getElementById(`savebtn-${rowId}-${field}`);
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
-  // Sync first to check for conflicts
-  setSyncStatus('Checking…', '');
-  try {
-    const checkRes = await fetch(`${SCRIPT_URL}?action=read`);
-    const checkJson = await checkRes.json();
-    if (checkJson.rows) {
-      // Check if name is already taken in latest data
-      const latestAssigned = new Set();
-      checkJson.rows.forEach(r => {
-        if (r.notPlaying) latestAssigned.add(r.notPlaying);
-        if (r.player1) latestAssigned.add(r.player1);
-        if (r.player2) latestAssigned.add(r.player2);
-      });
-      // Exclude current saved value for this cell
-      const row = rows.find(r => r.id === rowId);
-      const currentVal = row ? row[field] : '';
-      if (latestAssigned.has(name) && name !== currentVal) {
-        toast(`"${name}" was just taken — please select again`);
-        delete pending[key];
-        // Refresh from latest
-        rows = Array.from({ length: NUM_ROWS }, (_, i) => {
-          const found = checkJson.rows.find(r => r.id === i + 1);
-          return found || { id: i+1, notPlaying:'', player1:'', player2:'', nineOnly:false };
-        });
-        namePool = checkJson.namePool || namePool;
-        saveLocal(); renderTable(); renderPool();
-        setSyncStatus('Synced ✓', 'ok');
-        return;
-      }
-      // Update local rows with latest before writing
-      rows = Array.from({ length: NUM_ROWS }, (_, i) => {
-        const found = checkJson.rows.find(r => r.id === i + 1);
-        return found || { id: i+1, notPlaying:'', player1:'', player2:'', nineOnly:false };
-      });
-      namePool = checkJson.namePool || namePool;
-    }
-  } catch(e) {}
-
-  // Commit the cell
+  // Commit the cell locally
   const row = rows.find(r => r.id === rowId);
   if (row) row[field] = name;
   delete pending[key];
   saveLocal();
 
   // Push to sheet
+  setSyncStatus('Saving…', '');
   const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
   const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
   const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
@@ -671,7 +634,8 @@ async function saveCell(rowId, field) {
     setSyncStatus('Error', 'err');
     toast('Could not reach Google Sheets');
   }
-  renderTable(); renderPool();
+  renderTable();
+  renderPool();
 }
 
 function toggleNineOnly(rowId) {
