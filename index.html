@@ -29,7 +29,7 @@
     background: var(--fairway);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.5;
     min-height: 100vh;
   }
@@ -203,15 +203,14 @@
   thead tr { background: var(--green-dark); }
   thead th {
     color: #fff;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 9px 10px;
+    padding: 10px 10px;
     text-align: left;
     white-space: nowrap;
   }
-  thead th:first-child { width: 36px; text-align: center; color: rgba(255,255,255,0.6); }
   thead th.col-not-playing { background: #c0392b22; color: #f5a0a0; }
   thead th.col-player { background: rgba(255,255,255,0.05); }
   thead th.col-nine { width: 110px; text-align: center; }
@@ -220,28 +219,62 @@
   tbody tr { border-bottom: 1px solid var(--border); }
   tbody tr:last-child { border-bottom: none; }
   tbody tr:nth-child(even) { background: #fafbfa; }
-  tbody tr:hover { background: var(--green-light); }
 
-  td { padding: 4px 6px; vertical-align: middle; }
-  td.col-nine { text-align: center; }
+  td { padding: 6px 8px; vertical-align: top; }
+  td.col-nine { text-align: center; vertical-align: middle; }
+
+  /* ── Cell container ── */
+  .cell { display: flex; flex-direction: column; gap: 4px; }
 
   /* ── Cell select ── */
   .cell-select {
     width: 100%;
-    font-size: 12px;
-    padding: 4px 6px;
-    border: 1px solid transparent;
+    font-size: 14px;
+    padding: 5px 7px;
+    border: 1px solid var(--border);
     border-radius: 4px;
-    background: transparent;
+    background: var(--white);
     color: var(--text);
     outline: none;
     cursor: pointer;
     font-family: inherit;
   }
-  .cell-select:hover { border-color: var(--border); background: var(--white); }
-  .cell-select:focus { border-color: var(--green-mid); background: var(--white); }
-  .cell-select.has-value { color: var(--green-dark); font-weight: 500; background: var(--green-light); border-color: var(--green-border); }
-  .cell-select.not-playing-val { color: var(--danger); font-weight: 500; background: var(--danger-light); border-color: #e8b4b0; }
+  .cell-select:hover { border-color: var(--green-mid); }
+  .cell-select:focus { border-color: var(--green-mid); }
+  .cell-pending .cell-select { border-color: #f0d89a; background: #fffbeb; }
+
+  /* ── Confirm row ── */
+  .confirm-row { display: flex; align-items: center; gap: 6px; }
+  .confirm-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--green-mid); cursor: pointer; flex-shrink: 0; }
+  .confirm-row label { font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  .cell-save-btn {
+    font-size: 12px; padding: 3px 10px;
+    border-radius: 4px; background: var(--green-mid);
+    color: #fff; border: none; cursor: pointer;
+    margin-left: auto; font-family: inherit;
+  }
+  .cell-save-btn:disabled { background: var(--border-strong); color: var(--text-muted); cursor: default; }
+
+  /* ── Saved cell display ── */
+  .cell-saved {
+    font-size: 14px; padding: 5px 10px;
+    border-radius: 4px;
+    background: var(--green-light);
+    border: 1px solid var(--green-border);
+    color: var(--green-dark);
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cell-saved-np {
+    font-size: 14px; padding: 5px 10px;
+    border-radius: 4px;
+    background: var(--danger-light);
+    border: 1px solid #e8b4b0;
+    color: var(--danger);
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .saved-check { font-size: 12px; opacity: 0.7; }
 
   /* ── Toggle switch ── */
   .toggle-wrap { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
@@ -527,15 +560,100 @@ function renderPool() {
 }
 
 // ── Assign ──
-function assign(rowId, field, name) {
-  const row = rows.find(r => r.id === rowId);
-  if (!row) return;
-  // Clear old value back to pool if needed
-  row[field] = name;
-  saveLocal();
+// pending holds { rowId-field: name } for selections awaiting confirm+save
+let pending = {};
+
+function selectName(rowId, field, name) {
+  if (!name) {
+    // cleared — remove from pending, don't change saved data
+    delete pending[`${rowId}-${field}`];
+    renderTable();
+    return;
+  }
+  pending[`${rowId}-${field}`] = name;
   renderTable();
-  renderPool();
-  scheduleSave();
+}
+
+function confirmCell(rowId, field) {
+  const key = `${rowId}-${field}`;
+  const cbId = `cb-${rowId}-${field}`;
+  const btnId = `savebtn-${rowId}-${field}`;
+  const cb = document.getElementById(cbId);
+  const btn = document.getElementById(btnId);
+  if (cb) btn.disabled = !cb.checked;
+}
+
+async function saveCell(rowId, field) {
+  const key = `${rowId}-${field}`;
+  const name = pending[key];
+  if (!name) return;
+
+  const btn = document.getElementById(`savebtn-${rowId}-${field}`);
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+  // Sync first to check for conflicts
+  setSyncStatus('Checking…', '');
+  try {
+    const checkRes = await fetch(`${SCRIPT_URL}?action=read`);
+    const checkJson = await checkRes.json();
+    if (checkJson.rows) {
+      // Check if name is already taken in latest data
+      const latestAssigned = new Set();
+      checkJson.rows.forEach(r => {
+        if (r.notPlaying) latestAssigned.add(r.notPlaying);
+        if (r.player1) latestAssigned.add(r.player1);
+        if (r.player2) latestAssigned.add(r.player2);
+      });
+      // Exclude current saved value for this cell
+      const row = rows.find(r => r.id === rowId);
+      const currentVal = row ? row[field] : '';
+      if (latestAssigned.has(name) && name !== currentVal) {
+        toast(`"${name}" was just taken — please select again`);
+        delete pending[key];
+        // Refresh from latest
+        rows = Array.from({ length: NUM_ROWS }, (_, i) => {
+          const found = checkJson.rows.find(r => r.id === i + 1);
+          return found || { id: i+1, notPlaying:'', player1:'', player2:'', nineOnly:false };
+        });
+        namePool = checkJson.namePool || namePool;
+        saveLocal(); renderTable(); renderPool();
+        setSyncStatus('Synced ✓', 'ok');
+        return;
+      }
+      // Update local rows with latest before writing
+      rows = Array.from({ length: NUM_ROWS }, (_, i) => {
+        const found = checkJson.rows.find(r => r.id === i + 1);
+        return found || { id: i+1, notPlaying:'', player1:'', player2:'', nineOnly:false };
+      });
+      namePool = checkJson.namePool || namePool;
+    }
+  } catch(e) {}
+
+  // Commit the cell
+  const row = rows.find(r => r.id === rowId);
+  if (row) row[field] = name;
+  delete pending[key];
+  saveLocal();
+
+  // Push to sheet
+  const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
+  const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
+  const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.success) {
+      setSyncStatus('Saved ✓', 'ok');
+      toast('Saved');
+    } else {
+      setSyncStatus('Save failed', 'err');
+      toast('Save error — try again');
+    }
+  } catch(e) {
+    setSyncStatus('Error', 'err');
+    toast('Could not reach Google Sheets');
+  }
+  renderTable(); renderPool();
 }
 
 function toggleNineOnly(rowId) {
@@ -551,34 +669,63 @@ function toggleNineOnly(rowId) {
 function renderTable() {
   const hasPool = namePool.length > 0;
   const tbody = document.getElementById('signup-tbody');
-  // Calculate assigned names ONCE outside the loop
   const assigned = allAssigned();
 
   tbody.innerHTML = rows.map(row => {
 
-    function cellSelect(field, currentVal, isNotPlaying) {
-      // Available = unassigned names + current value of this specific cell
-      const opts = namePool.filter(n => n === currentVal || !assigned.has(n));
-      const cls = currentVal
-        ? (isNotPlaying ? 'cell-select not-playing-val' : 'cell-select has-value')
-        : 'cell-select';
+    function buildCell(field, isNotPlaying) {
+      const key = `${row.id}-${field}`;
+      const savedVal = row[field];
+      const pendingVal = pending[key];
 
       if (!hasPool) {
-        return `<span style="font-size:11px;color:var(--text-muted);font-style:italic;">—</span>`;
+        return `<div class="cell"><span style="font-size:13px;color:var(--text-muted);font-style:italic;">—</span></div>`;
       }
 
-      return `<select class="${cls}" onchange="assign(${row.id}, '${field}', this.value)">
-        <option value="">—</option>
-        ${currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : ''}
-        ${opts.filter(n => n !== currentVal).map(n => `<option value="${n}">${n}</option>`).join('')}
-      </select>`;
+      // Saved state
+      if (savedVal && !pendingVal) {
+        const cls = isNotPlaying ? 'cell-saved-np' : 'cell-saved';
+        return `<div class="cell">
+          <div class="${cls}">
+            <span>${savedVal}</span>
+            <span class="saved-check">✓</span>
+          </div>
+        </div>`;
+      }
+
+      // Available options
+      const opts = namePool.filter(n => n === savedVal || n === pendingVal || !assigned.has(n));
+
+      // Pending state
+      if (pendingVal) {
+        return `<div class="cell cell-pending">
+          <select class="cell-select" onchange="selectName(${row.id}, '${field}', this.value)">
+            <option value="">—</option>
+            <option value="${pendingVal}" selected>${pendingVal}</option>
+            ${opts.filter(n => n !== pendingVal).map(n => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+          <div class="confirm-row">
+            <input type="checkbox" id="cb-${row.id}-${field}" onchange="confirmCell(${row.id}, '${field}')">
+            <label for="cb-${row.id}-${field}">Confirm</label>
+            <button class="cell-save-btn" id="savebtn-${row.id}-${field}" disabled onclick="saveCell(${row.id}, '${field}')">Save</button>
+          </div>
+        </div>`;
+      }
+
+      // Empty state
+      return `<div class="cell">
+        <select class="cell-select" onchange="selectName(${row.id}, '${field}', this.value)">
+          <option value="">—</option>
+          ${opts.map(n => `<option value="${n}">${n}</option>`).join('')}
+        </select>
+      </div>`;
     }
 
     return `<tr>
-      <td>${cellSelect('notPlaying', row.notPlaying, true)}</td>
-      <td>${cellSelect('player1', row.player1, false)}</td>
-      <td style="text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap;font-style:italic;">in cart with</td>
-      <td>${cellSelect('player2', row.player2, false)}</td>
+      <td>${buildCell('notPlaying', true)}</td>
+      <td>${buildCell('player1', false)}</td>
+      <td style="text-align:center;font-size:12px;color:var(--text-muted);white-space:nowrap;font-style:italic;vertical-align:middle;">in cart with</td>
+      <td>${buildCell('player2', false)}</td>
       <td class="col-nine">
         <label class="toggle-wrap">
           <input type="checkbox" ${row.nineOnly ? 'checked' : ''} onchange="toggleNineOnly(${row.id})">
