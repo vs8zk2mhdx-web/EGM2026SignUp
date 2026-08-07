@@ -434,7 +434,7 @@ let rows = Array.from({ length: NUM_ROWS }, (_, i) => ({
 }));
 let instructionText = DEFAULT_INSTRUCTIONS;
 let isAdmin = false;
-let saveTimer = null;
+let pending = {};
 
 // ── Init ──
 window.addEventListener('DOMContentLoaded', () => {
@@ -516,32 +516,6 @@ function clearAllRows() {
   scheduleSave();
 }
 
-// ── Load names from Google Sheet ──
-async function loadNamesFromSheet() {
-  const msg = document.getElementById('load-names-msg');
-  msg.textContent = 'Loading…';
-  const url = `${SCRIPT_URL}?action=loadNames`;
-  try {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.names && json.names.length) {
-      namePool = json.names;
-      saveLocal();
-      renderPool();
-      renderTable();
-      msg.textContent = `${namePool.length} names loaded ✓`;
-      setTimeout(() => msg.textContent = '', 4000);
-      toast(`${namePool.length} names loaded`);
-    } else if (json.error) {
-      msg.textContent = 'Error: ' + json.error;
-    } else {
-      msg.textContent = 'No names found in sheet';
-    }
-  } catch(e) {
-    msg.textContent = 'Could not reach Google Sheets';
-  }
-}
-
 // ── Render pool ──
 function renderPool() {
   const avail = unassigned();
@@ -561,12 +535,8 @@ function renderPool() {
 }
 
 // ── Assign ──
-// pending holds { rowId-field: name } for selections awaiting confirm+save
-let pending = {};
-
 function selectName(rowId, field, name) {
   if (!name) {
-    // cleared — remove from pending, don't change saved data
     delete pending[`${rowId}-${field}`];
     renderTable();
     return;
@@ -581,32 +551,105 @@ function confirmCell(rowId, field) {
   if (cb && btn) btn.disabled = !cb.checked;
 }
 
-async function deleteCell(rowId, field) {
-  if (!isAdmin) return; // safety guard
-  const row = rows.find(r => r.id === rowId);
-  if (!row) return;
-  row[field] = '';
-  delete pending[`${rowId}-${field}`];
-  saveLocal();
-  renderTable();
-  renderPool();
-  // Delay to avoid Apps Script throttling
-  await new Promise(r => setTimeout(r, 800));
-  // Push with retry
-  const activeRows2 = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
-  const data2 = JSON.stringify({ rows: activeRows2, namePool, instructionText });
-  const url2 = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data2)}`;
-  async function attemptDelete() {
-    const res = await fetch(url2);
-    return await res.json();
-  }
-  try {
-    let json;
-    try { json = await attemptDelete(); }
-    catch(e) { await new Promise(r => setTimeout(r, 1500)); json = await attemptDelete(); }
-    if (json.success) { setSyncStatus('Saved ✓', 'ok'); toast('Name removed'); }
-    else { setSyncStatus('Save failed', 'err'); toast('Save error — try again'); }
-  } catch(e) { setSyncStatus('Error', 'err'); toast('Could not reach Google Sheets — please hit Sync'); }
+// ── Save queue — all Google Sheet calls serialised ──
+let saveQueue = Promise.resolve();
+let saveTimer = null;
+
+function enqueue(fn) {
+  saveQueue = saveQueue.then(fn).catch(() => {});
+  return saveQueue;
+}
+
+function pushToSheetQueued(successMsg) {
+  return enqueue(async () => {
+    setSyncStatus('Saving…', '');
+    const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
+    const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
+    const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success) {
+        setSyncStatus('Saved ✓', 'ok');
+        if (successMsg) toast(successMsg);
+      } else {
+        setSyncStatus('Save failed', 'err');
+        toast('Save error — please hit Sync');
+      }
+    } catch(e) {
+      setSyncStatus('Still saving…', '');
+      toast('Still saving — please wait a moment, then hit SYNC in the upper right corner');
+    }
+  });
+}
+
+// ── Debounced auto-save for admin bulk actions ──
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => pushToSheetQueued(), 800);
+}
+
+// ── Google Sheets push (admin button) ──
+async function pushToSheet() {
+  pushToSheetQueued();
+}
+
+// ── Google Sheets pull ──
+async function syncFromSheet() {
+  enqueue(async () => {
+    setSyncStatus('Syncing…', '');
+    const url = `${SCRIPT_URL}?action=read`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.rows) {
+        const saved = json.rows;
+        rows = Array.from({ length: NUM_ROWS }, (_, i) => {
+          const found = saved.find(r => r.id === i + 1);
+          return found || { id: i + 1, notPlaying: '', player1: '', player2: '', nineOnly: false };
+        });
+        namePool = json.namePool || [];
+        if (json.instructionText) instructionText = json.instructionText;
+        saveLocal();
+        renderInstructions();
+        renderTable();
+        renderPool();
+        setSyncStatus('Synced ✓', 'ok');
+      } else {
+        setSyncStatus('No data yet', '');
+      }
+    } catch(e) {
+      setSyncStatus('Sync error', 'err');
+    }
+  });
+}
+
+// ── Load names from Google Sheet ──
+async function loadNamesFromSheet() {
+  const msg = document.getElementById('load-names-msg');
+  msg.textContent = 'Loading…';
+  enqueue(async () => {
+    const url = `${SCRIPT_URL}?action=loadNames`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.names && json.names.length) {
+        namePool = json.names;
+        saveLocal();
+        renderPool();
+        renderTable();
+        msg.textContent = `${namePool.length} names loaded ✓`;
+        setTimeout(() => msg.textContent = '', 4000);
+        toast(`${namePool.length} names loaded`);
+      } else if (json.error) {
+        msg.textContent = 'Error: ' + json.error;
+      } else {
+        msg.textContent = 'No names found in sheet';
+      }
+    } catch(e) {
+      msg.textContent = 'Could not reach Google Sheets';
+    }
+  });
 }
 
 async function saveCell(rowId, field) {
@@ -617,48 +660,14 @@ async function saveCell(rowId, field) {
   const btn = document.getElementById(`savebtn-${rowId}-${field}`);
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
 
-  // Commit the cell locally
+  // Commit locally
   const row = rows.find(r => r.id === rowId);
   if (row) row[field] = name;
   delete pending[key];
   saveLocal();
-
-  // Delay to avoid Apps Script throttling
-  await new Promise(r => setTimeout(r, 800));
-
-  // Push to sheet with one retry
-  setSyncStatus('Saving…', '');
-  const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
-  const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
-  const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
-
-  async function attemptSave() {
-    const res = await fetch(url);
-    return await res.json();
-  }
-
-  try {
-    let json;
-    try {
-      json = await attemptSave();
-    } catch(e) {
-      // First attempt failed — wait and retry once
-      await new Promise(r => setTimeout(r, 1500));
-      json = await attemptSave();
-    }
-    if (json.success) {
-      setSyncStatus('Saved ✓', 'ok');
-      toast('Saved');
-    } else {
-      setSyncStatus('Save failed', 'err');
-      toast('Save error — try again');
-    }
-  } catch(e) {
-    setSyncStatus('Error', 'err');
-    toast('Could not reach Google Sheets — please hit Sync');
-  }
   renderTable();
   renderPool();
+  pushToSheetQueued('Saved');
 }
 
 function toggleNineOnly(rowId) {
@@ -690,13 +699,10 @@ function renderTable() {
       // Saved state
       if (savedVal && !pendingVal) {
         const cls = isNotPlaying ? 'cell-saved-np' : 'cell-saved';
-        const deleteBtn = isAdmin
-          ? `<button onclick="deleteCell(${row.id}, '${field}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:inherit;opacity:0.6;padding:0 0 0 6px;line-height:1;" title="Remove">✕</button>`
-          : '';
         return `<div class="cell">
           <div class="${cls}">
             <span>${savedVal}</span>
-            <span style="display:flex;align-items:center;gap:2px;"><span class="saved-check">✓</span>${deleteBtn}</span>
+            <span class="saved-check">✓</span>
           </div>
         </div>`;
       }
@@ -761,65 +767,7 @@ function toggleAdmin() {
   document.getElementById('admin-panel').style.display = isAdmin ? 'block' : 'none';
   document.getElementById('instruction-admin-edit').closest('.admin-section').style.display = isAdmin ? 'block' : 'none';
   renderPool();
-  renderTable(); // re-render table so ✕ buttons appear/disappear correctly
-}
-
-// ── Debounced auto-save ──
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  setSyncStatus('Saving…', '');
-  saveTimer = setTimeout(() => pushToSheet(), 800);
-}
-
-// ── Google Sheets push ──
-async function pushToSheet() {
-  setSyncStatus('Saving…', '');
-  // Only send rows that have data to keep the URL short
-  const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.nineOnly);
-  const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
-  const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
-  try {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.success) {
-      setSyncStatus('Saved ✓', 'ok');
-    } else {
-      setSyncStatus('Save failed', 'err');
-      toast('Save error — try again');
-    }
-  } catch(e) {
-    setSyncStatus('Error', 'err');
-    toast('Could not reach Google Sheets');
-  }
-}
-
-// ── Google Sheets pull ──
-async function syncFromSheet() {
-  setSyncStatus('Syncing…', '');
-  const url = `${SCRIPT_URL}?action=read`;
-  try {
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.rows) {
-      // Merge saved rows into full 75-row array
-      const saved = json.rows;
-      rows = Array.from({ length: NUM_ROWS }, (_, i) => {
-        const found = saved.find(r => r.id === i + 1);
-        return found || { id: i + 1, notPlaying: '', player1: '', player2: '', nineOnly: false };
-      });
-      namePool = json.namePool || [];
-      if (json.instructionText) instructionText = json.instructionText;
-      saveLocal();
-      renderInstructions();
-      renderTable();
-      renderPool();
-      setSyncStatus('Synced ✓', 'ok');
-    } else {
-      setSyncStatus('No data yet', '');
-    }
-  } catch(e) {
-    setSyncStatus('Sync error', 'err');
-  }
+  renderTable();
 }
 
 function setSyncStatus(msg, cls) {
