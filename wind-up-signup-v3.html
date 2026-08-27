@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wind Up Game Sign-Up</title>
+<style>
+  :root {
+    --green-dark: #1e4d2b;
+    --green-mid: #2d6a4f;
+    --green-light: #e8f5ef;
+    --green-border: #b0d8c4;
+    --fairway: #f5f7f5;
+    --white: #ffffff;
+    --border: #dde5dd;
+    --border-strong: #b8c8b8;
+    --text: #1a241a;
+    --text-secondary: #4a5e4a;
+    --text-muted: #8a9e8a;
+    --warning: #b7791f;
+    --warning-light: #fffbeb;
+    --danger: #c0392b;
+    --danger-light: #fdf0ee;
+    --radius: 6px;
+    --shadow: 0 1px 3px rgba(30,77,43,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--fairway);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--green-dark);
+    color: #fff;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    height: 52px;
+  }
+  .header-title { display: flex; flex-direction: column; }
+  header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.3px; }
+  header .subtitle { font-size: 11px; opacity: 0.65; margin-top: 1px; letter-spacing: 0.2px; text-transform: uppercase; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .sync-status { font-size: 11px; opacity: 0.8; }
+  .sync-status.ok { color: #a8e6c8; }
+  .sync-status.err { color: #f5a0a0; }
+  .header-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .header-btn:hover { background: rgba(255,255,255,0.2); }
+
+  /* ── Layout ── */
+  .container { max-width: 900px; margin: 0 auto; padding: 20px 16px; }
+
+  /* ── Instruction block ── */
+  .instruction-block {
+    background: var(--white);
+    border: 1px solid var(--green-border);
+    border-left: 4px solid var(--green-mid);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+  .instruction-block a { color: var(--green-mid); font-weight: 600; }
+  .instruction-edit {
+    width: 100%;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    border: 1px dashed var(--green-border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-family: inherit;
+    background: #f0f8f3;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+  }
+  .instruction-edit:focus { border-color: var(--green-mid); }
+
+  /* ── Admin panel ── */
+  #admin-panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+    overflow: hidden;
+    display: none;
+  }
+  .admin-header {
+    background: var(--warning-light);
+    border-bottom: 1px solid #f0d89a;
+    padding: 9px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .admin-header span { font-size: 12px; font-weight: 700; color: var(--warning); text-transform: uppercase; letter-spacing: 0.05em; }
+  .admin-body { padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .admin-section h3 { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+
+  /* ── Pool ── */
+  .pool-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 28px; padding: 7px; background: var(--fairway); border: 1px solid var(--border); border-radius: var(--radius); max-height: 100px; overflow-y: auto; margin-top: 8px; }
+  .pool-tag { font-size: 11px; background: var(--green-light); color: var(--green-mid); border: 1px solid var(--green-border); border-radius: 99px; padding: 1px 8px; }
+  .pool-empty { font-size: 11px; color: var(--text-muted); font-style: italic; }
+
+  /* ── Upload zone ── */
+  .upload-zone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .upload-zone:hover { background: var(--green-light); border-color: var(--green-mid); }
+  .upload-zone input { display: none; }
+  .upload-zone p { font-size: 12px; color: var(--text-secondary); }
+  .upload-zone .hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Manual add ── */
+  .manual-row { display: flex; gap: 6px; margin-top: 6px; }
+  .manual-row input {
+    flex: 1; font-size: 12px; padding: 5px 8px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--white); color: var(--text); outline: none;
+  }
+  .manual-row input:focus { border-color: var(--green-mid); }
+
+  /* ── Admin actions ── */
+  .admin-actions { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; background: var(--fairway); }
+
+  /* ── Buttons ── */
+  button {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-strong);
+    background: var(--white);
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.12s;
+    white-space: nowrap;
+  }
+  button:hover { background: var(--fairway); }
+  button.primary { background: var(--green-mid); color: #fff; border-color: var(--green-mid); }
+  button.primary:hover { background: var(--green-dark); }
+  button.danger-btn { color: var(--danger); border-color: #e8b4b0; }
+  button.danger-btn:hover { background: var(--danger-light); }
+  button.small { font-size: 11px; padding: 3px 8px; }
+
+  /* ── Top bar ── */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pool-count {
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 4px 10px;
+  }
+  .admin-toggle label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-secondary);
+    cursor: pointer; user-select: none;
+  }
+
+  /* ── Sign-up table ── */
+  .table-wrap {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 600px; }
+  thead tr { background: var(--green-dark); }
+  thead th {
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 10px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  thead th.col-not-playing { background: #c0392b22; color: #f5a0a0; }
+  thead th.col-player { background: rgba(255,255,255,0.05); }
+  thead th.col-nine { width: 110px; text-align: center; }
+  thead th.col-cart { width: 90px; }
+
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #fafbfa; }
+
+  td { padding: 6px 8px; vertical-align: top; }
+  td.col-nine { text-align: center; vertical-align: middle; }
+
+  /* ── Cell container ── */
+  .cell { display: flex; flex-direction: column; gap: 4px; }
+
+  /* ── Cell select ── */
+  .cell-select {
+    width: 100%;
+    font-size: 14px;
+    padding: 5px 7px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--white);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cell-select:hover { border-color: var(--green-mid); }
+  .cell-select:focus { border-color: var(--green-mid); }
+  .cell-pending .cell-select { border-color: #f0d89a; background: #fffbeb; }
+
+  /* ── Confirm row ── */
+  .confirm-row { display: flex; align-items: center; gap: 6px; }
+  .confirm-row input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--green-mid); cursor: pointer; flex-shrink: 0; }
+  .confirm-row label { font-size: 12px; color: var(--text-secondary); cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .cell-save-btn {
+    font-size: 13px; padding: 4px 12px;
+    border-radius: 4px; background: var(--green-mid);
+    color: #fff; border: 2px solid var(--green-dark);
+    cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 700; letter-spacing: 0.03em; margin-left: auto;
+  }
+  .cell-save-btn:disabled { background: #d0ddd0; color: #8a9e8a; border-color: #b8c8b8; cursor: default; font-weight: 400; }
+  .cell-save-btn:not(:disabled):hover { background: var(--green-dark); }
+
+  /* ── Saved cell display ── */
+  .cell-saved {
+    font-size: 14px; padding: 5px 10px;
+    border-radius: 4px;
+    background: var(--green-light);
+    border: 1px solid var(--green-border);
+    color: var(--green-dark);
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .cell-saved-np {
+    font-size: 14px; padding: 5px 10px;
+    border-radius: 4px;
+    background: var(--danger-light);
+    border: 1px solid #e8b4b0;
+    color: var(--danger);
+    font-weight: 500;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .saved-check { font-size: 12px; opacity: 0.7; }
+
+  /* ── Holes column ── */
+  .holes-wrap { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+  .holes-options { display: flex; gap: 14px; justify-content: center; }
+  .holes-option { display: flex; align-items: center; gap: 4px; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; cursor: pointer; font-weight: 500; }
+  .holes-option input[type=radio] { width: 15px; height: 15px; accent-color: var(--green-mid); cursor: pointer; }
+  .holes-confirmed { font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--green-dark); font-weight: 700; text-align: center; background: var(--green-light); border: 1px solid var(--green-border); border-radius: 4px; padding: 4px 12px; }
+  .holes-confirm-btn { font-size: 13px; padding: 3px 10px; border-radius: 4px; background: var(--green-mid); color: #fff; border: 2px solid var(--green-dark); cursor: pointer; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-weight: 700; margin-top: 2px; }
+  .holes-confirm-btn:hover { background: var(--green-dark); }
+
+  /* ── Footer ── */
+  footer { text-align: center; padding: 20px; font-size: 11px; color: var(--text-muted); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--green-dark);
+    color: #fff;
+    font-size: 12px;
+    padding: 8px 18px;
+    border-radius: 99px;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 999;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <h1>Wind Up Game Sign-Up</h1>
+    <div class="subtitle">Tuesday Morning Women's League</div>
+  </div>
+  <div class="header-right">
+    <span class="sync-status" id="sync-status"></span>
+    <button class="header-btn" onclick="syncFromSheet()">↻ Sync</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Instruction block -->
+  <div class="instruction-block" id="instruction-display"></div>
+  <textarea class="instruction-edit" id="instruction-edit" style="display:none;" oninput="updateInstructionPreview()"></textarea>
+
+  <!-- Correction button -->
+  <div style="margin-bottom:16px;">
+    <a href="mailto:tuesgolfteetimes@gmail.com?subject=Change%20to%20tournament%20sign-up&body=Please%20describe%20the%20change%20you%20need%3A%0A%0A"
+       style="display:inline-block;background:var(--green-mid);color:#fff;font-size:13px;font-weight:600;padding:8px 16px;border-radius:var(--radius);text-decoration:none;border:none;cursor:pointer;">
+      Need to make a correction? Click here
+    </a>
+  </div>
+
+  <!-- Admin panel -->
+  <div id="admin-panel">
+    <div class="admin-header">
+      <span>⚙ Admin panel</span>
+      <button class="small danger-btn" onclick="clearAllRows()">Clear all rows</button>
+    </div>
+    <div class="admin-body">
+
+      <!-- Name list -->
+      <div class="admin-section">
+        <h3>Name list</h3>
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Names are loaded directly from the 2026 EGM Names Google Sheet.</p>
+        <button class="primary" style="width:100%;padding:10px;" onclick="loadNamesFromSheet()">↓ Load names from Google Sheet</button>
+        <div id="load-names-msg" style="font-size:11px;color:var(--green-mid);margin-top:6px;"></div>
+        <div class="pool-tags" id="pool-tags" style="margin-top:8px;"><span class="pool-empty">No names loaded yet</span></div>
+        <div style="margin-top:6px;">
+          <button class="small danger-btn" onclick="clearPool()">Clear name list</button>
+        </div>
+      </div>
+
+      <!-- Instructions editor -->
+      <div class="admin-section">
+        <h3>Instruction text</h3>
+        <p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">Edit the message shown to all users at the top of the page.</p>
+        <textarea class="instruction-edit" id="instruction-admin-edit" style="display:block;min-height:120px;" oninput="syncInstructionText()"></textarea>
+        <button class="small primary" style="margin-top:6px;" onclick="saveInstructions()">Save instructions</button>
+      </div>
+
+    </div>
+    <div class="admin-actions">
+      <button class="primary" onclick="newTournament()">★ New Tournament</button>
+      <button class="primary" onclick="pushToSheet()">↑ Immediate Save to Google Sheet</button>
+      <button onclick="downloadCSV()">⬇ Download CSV</button>
+    </div>
+  </div>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="pool-count" id="pool-count-label">Waiting for name list</div>
+    <div class="admin-toggle">
+      <label>
+        <input type="checkbox" id="admin-toggle" onchange="toggleAdmin()">
+        Admin mode
+      </label>
+    </div>
+  </div>
+
+  <!-- Sign-up table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-not-playing">Not Playing</th>
+          <th class="col-player">Player</th>
+          <th class="col-cart"></th>
+          <th class="col-player">Player</th>
+          <th class="col-nine">18 or 9 holes?</th>
+        </tr>
+      </thead>
+      <tbody id="signup-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>Tuesday Morning Women's League &nbsp;·&nbsp; Data stored in Google Sheets</footer>
+<div id="toast"></div>
+
+<script>
+const NUM_ROWS = 75;
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbym8tExUUlevuxR-Re4bIG6Skltq29WiERLLusRUqXQopvAEKvmSfUeUf8itmSaavkwXA/exec';
+const DEFAULT_INSTRUCTIONS = 'Please select one or more names to add to a group. You can\'t remove a name from a group, only add. If you are coordinating for your golf buddies, make sure they know you have signed them up. You don\'t need to fill an entire row — you can leave it partially filled, and other members not grouped by the final date will be filled in by us. If you need to request a deletion or change, email <a href="mailto:tuesgolfteetimes@gmail.com">tuesgolfteetimes@gmail.com</a>.';
+
+// ── State ──
+let namePool = [];
+let rows = Array.from({ length: NUM_ROWS }, (_, i) => ({
+  id: i + 1,
+  notPlaying: '',
+  player1: '',
+  player2: '',
+  holes: '',        // '18' or '9' or ''
+  holesConfirmed: false
+}));
+let instructionText = DEFAULT_INSTRUCTIONS;
+let isAdmin = false;
+let pending = {};
+
+// ── Init ──
+window.addEventListener('DOMContentLoaded', () => {
+  loadLocal();
+  renderInstructions();
+  renderTable();
+  renderPool();
+  syncFromSheet();
+});
+
+// ── Local cache ──
+function saveLocal() {
+  try {
+    localStorage.setItem('wug2_rows', JSON.stringify(rows));
+    localStorage.setItem('wug2_pool', JSON.stringify(namePool));
+    localStorage.setItem('wug2_instructions', instructionText);
+  } catch(e) {}
+}
+
+function loadLocal() {
+  try {
+    const r = localStorage.getItem('wug2_rows');
+    if (r) rows = JSON.parse(r);
+    const p = localStorage.getItem('wug2_pool');
+    if (p) namePool = JSON.parse(p);
+    const i = localStorage.getItem('wug2_instructions');
+    if (i) instructionText = i;
+  } catch(e) {}
+}
+
+// ── Instructions ──
+function renderInstructions() {
+  document.getElementById('instruction-display').innerHTML = instructionText;
+  document.getElementById('instruction-admin-edit').value = instructionText;
+}
+
+function syncInstructionText() {
+  instructionText = document.getElementById('instruction-admin-edit').value;
+  document.getElementById('instruction-display').innerHTML = instructionText;
+}
+
+function saveInstructions() {
+  instructionText = document.getElementById('instruction-admin-edit').value;
+  saveLocal();
+  scheduleSave();
+  toast('Instructions saved');
+}
+
+// ── Name pool ──
+function allAssigned() {
+  const taken = new Set();
+  rows.forEach(r => {
+    if (r.notPlaying) taken.add(r.notPlaying);
+    if (r.player1) taken.add(r.player1);
+    if (r.player2) taken.add(r.player2);
+  });
+  return taken;
+}
+
+function unassigned() {
+  const taken = allAssigned();
+  return namePool.filter(n => !taken.has(n));
+}
+
+function clearPool() {
+  if (!confirm('Clear the name list? Already-assigned names will remain in their rows.')) return;
+  namePool = [];
+  saveLocal();
+  renderPool();
+  renderTable();
+}
+
+function clearAllRows() {
+  if (!confirm('Clear all assigned names from all rows?')) return;
+  rows.forEach(r => { r.notPlaying = ''; r.player1 = ''; r.player2 = ''; r.holes = ''; r.holesConfirmed = false; });
+  saveLocal();
+  renderTable();
+  renderPool();
+  scheduleSave();
+}
+
+function newTournament() {
+  if (!confirm('Start a new tournament? This will clear ALL pairings AND the name list. This cannot be undone.')) return;
+  rows.forEach(r => { r.notPlaying = ''; r.player1 = ''; r.player2 = ''; r.holes = ''; r.holesConfirmed = false; });
+  namePool = [];
+  saveLocal();
+  renderTable();
+  renderPool();
+  pushToSheetQueued('New tournament started');
+}
+
+// ── Render pool ──
+function renderPool() {
+  const avail = unassigned();
+  const container = document.getElementById('pool-tags');
+  container.innerHTML = !namePool.length
+    ? '<span class="pool-empty">No names loaded yet</span>'
+    : avail.length
+      ? avail.map(n => `<span class="pool-tag">${n}</span>`).join('')
+      : '<span class="pool-empty">All names assigned</span>';
+
+  const label = document.getElementById('pool-count-label');
+  if (!namePool.length) {
+    label.textContent = isAdmin ? 'Load names from the admin panel' : 'Waiting for name list';
+  } else {
+    label.textContent = `${avail.length} of ${namePool.length} names available`;
+  }
+}
+
+// ── Assign ──
+function selectName(rowId, field, name) {
+  if (!name) {
+    delete pending[`${rowId}-${field}`];
+    renderTable();
+    return;
+  }
+  pending[`${rowId}-${field}`] = name;
+  renderTable();
+}
+
+function confirmCell(rowId, field) {
+  const cb = document.getElementById(`cb-${rowId}-${field}`);
+  const btn = document.getElementById(`savebtn-${rowId}-${field}`);
+  if (cb && btn) btn.disabled = !cb.checked;
+}
+
+// ── Save queue — all Google Sheet calls serialised ──
+let saveQueue = Promise.resolve();
+let saveTimer = null;
+
+function enqueue(fn) {
+  saveQueue = saveQueue.then(fn).catch(() => {});
+  return saveQueue;
+}
+
+function pushToSheetQueued(successMsg) {
+  return enqueue(async () => {
+    setSyncStatus('Saving…', '');
+    const activeRows = rows.filter(r => r.notPlaying || r.player1 || r.player2 || r.holes);
+    const data = JSON.stringify({ rows: activeRows, namePool, instructionText });
+    const url = `${SCRIPT_URL}?action=write&data=${encodeURIComponent(data)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      const json = await res.json();
+      if (json.success) {
+        setSyncStatus('Saved ✓', 'ok');
+        if (successMsg) toast(successMsg);
+      } else {
+        setSyncStatus('Save failed', 'err');
+        toast('Save error — please hit SYNC in the upper right corner');
+      }
+    } catch(e) {
+      clearTimeout(timeout);
+      setSyncStatus('Status unknown', '');
+      toast('Save status unknown — hit SYNC in the upper right corner to verify');
+    }
+  });
+}
+
+// ── Debounced auto-save for admin bulk actions ──
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => pushToSheetQueued(), 800);
+}
+
+// ── Google Sheets push (admin button) ──
+async function pushToSheet() {
+  pushToSheetQueued();
+}
+
+// ── Google Sheets pull ──
+async function syncFromSheet() {
+  enqueue(async () => {
+    setSyncStatus('Syncing…', '');
+    const url = `${SCRIPT_URL}?action=read`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.rows) {
+        const saved = json.rows;
+        rows = Array.from({ length: NUM_ROWS }, (_, i) => {
+          const found = saved.find(r => r.id === i + 1);
+          return found || { id: i + 1, notPlaying: '', player1: '', player2: '', holes: '', holesConfirmed: false };
+        });
+        namePool = json.namePool || [];
+        if (json.instructionText) instructionText = json.instructionText;
+        saveLocal();
+        renderInstructions();
+        renderTable();
+        renderPool();
+        setSyncStatus('Synced ✓', 'ok');
+      } else {
+        setSyncStatus('No data yet', '');
+      }
+    } catch(e) {
+      setSyncStatus('Sync error', 'err');
+    }
+  });
+}
+
+// ── Load names from Google Sheet ──
+async function loadNamesFromSheet() {
+  const msg = document.getElementById('load-names-msg');
+  msg.textContent = 'Loading…';
+  enqueue(async () => {
+    const url = `${SCRIPT_URL}?action=loadNames`;
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.names && json.names.length) {
+        namePool = json.names;
+        saveLocal();
+        renderPool();
+        renderTable();
+        msg.textContent = `${namePool.length} names loaded ✓`;
+        setTimeout(() => msg.textContent = '', 4000);
+        toast(`${namePool.length} names loaded`);
+      } else if (json.error) {
+        msg.textContent = 'Error: ' + json.error;
+      } else {
+        msg.textContent = 'No names found in sheet';
+      }
+    } catch(e) {
+      msg.textContent = 'Could not reach Google Sheets';
+    }
+  });
+}
+
+async function deleteCell(rowId, field) {
+  if (!isAdmin) return;
+  const row = rows.find(r => r.id === rowId);
+  if (!row) return;
+  row[field] = '';
+  delete pending[`${rowId}-${field}`];
+  saveLocal();
+  renderTable();
+  renderPool();
+  pushToSheetQueued('Name removed');
+}
+
+async function saveCell(rowId, field) {
+  const key = `${rowId}-${field}`;
+  const name = pending[key];
+  if (!name) return;
+
+  const btn = document.getElementById(`savebtn-${rowId}-${field}`);
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+
+  // Commit locally
+  const row = rows.find(r => r.id === rowId);
+  if (row) row[field] = name;
+  delete pending[key];
+  saveLocal();
+  renderTable();
+  renderPool();
+  pushToSheetQueued('Saved');
+}
+
+function selectHoles(rowId, val) {
+  const row = rows.find(r => r.id === rowId);
+  if (!row || row.holesConfirmed) return;
+  row.holes = val;
+  renderTable();
+}
+
+function confirmHoles(rowId) {
+  const row = rows.find(r => r.id === rowId);
+  if (!row || !row.holes) return;
+  row.holesConfirmed = true;
+  saveLocal();
+  renderTable();
+  pushToSheetQueued('Holes confirmed');
+}
+
+function adminClearHoles(rowId) {
+  if (!isAdmin) return;
+  const row = rows.find(r => r.id === rowId);
+  if (!row) return;
+  row.holes = '';
+  row.holesConfirmed = false;
+  saveLocal();
+  renderTable();
+  pushToSheetQueued('Holes cleared');
+}
+
+// ── Render table ──
+function renderTable() {
+  const hasPool = namePool.length > 0;
+  const tbody = document.getElementById('signup-tbody');
+  const assigned = allAssigned();
+
+  tbody.innerHTML = rows.map(row => {
+
+    function buildCell(field, isNotPlaying) {
+      const key = `${row.id}-${field}`;
+      const savedVal = row[field];
+      const pendingVal = pending[key];
+
+      if (!hasPool) {
+        return `<div class="cell"><span style="font-size:13px;color:var(--text-muted);font-style:italic;">—</span></div>`;
+      }
+
+      // Saved state
+      if (savedVal && !pendingVal) {
+        const cls = isNotPlaying ? 'cell-saved-np' : 'cell-saved';
+        const deleteBtn = isAdmin
+          ? `<button onclick="deleteCell(${row.id}, '${field}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:inherit;opacity:0.6;padding:0 0 0 6px;line-height:1;" title="Remove">✕</button>`
+          : '';
+        return `<div class="cell">
+          <div class="${cls}">
+            <span>${savedVal}</span>
+            <span style="display:flex;align-items:center;gap:2px;"><span class="saved-check">✓</span>${deleteBtn}</span>
+          </div>
+        </div>`;
+      }
+
+      // Available options
+      const opts = namePool.filter(n => n === savedVal || n === pendingVal || !assigned.has(n));
+
+      // Pending state
+      if (pendingVal) {
+        return `<div class="cell cell-pending">
+          <select class="cell-select" onchange="selectName(${row.id}, '${field}', this.value)">
+            <option value="">—</option>
+            <option value="${pendingVal}" selected>${pendingVal}</option>
+            ${opts.filter(n => n !== pendingVal).map(n => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+          <div class="confirm-row">
+            <input type="checkbox" id="cb-${row.id}-${field}" onchange="confirmCell(${row.id}, '${field}')">
+            <label for="cb-${row.id}-${field}">Confirm</label>
+            <button class="cell-save-btn" id="savebtn-${row.id}-${field}" disabled onclick="saveCell(${row.id}, '${field}')">Save</button>
+          </div>
+        </div>`;
+      }
+
+      // Empty state
+      return `<div class="cell">
+        <select class="cell-select" onchange="selectName(${row.id}, '${field}', this.value)">
+          <option value="">—</option>
+          ${opts.map(n => `<option value="${n}">${n}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+
+    return `<tr>
+      <td>${buildCell('notPlaying', true)}</td>
+      <td>${buildCell('player1', false)}</td>
+      <td style="text-align:center;font-size:12px;color:var(--text-muted);white-space:nowrap;font-style:italic;vertical-align:middle;">in cart with</td>
+      <td>${buildCell('player2', false)}</td>
+      <td class="col-nine">
+        ${(() => {
+          if (row.holesConfirmed) {
+            return `<div class="holes-wrap">
+              <div class="holes-confirmed">${row.holes} holes</div>
+              ${isAdmin ? `<button class="holes-confirm-btn" style="background:var(--danger);border-color:var(--danger);" onclick="adminClearHoles(${row.id})">Clear</button>` : ''}
+            </div>`;
+          }
+          return `<div class="holes-wrap">
+            <div class="holes-options">
+              <label class="holes-option">
+                <input type="radio" name="holes-${row.id}" value="18" ${row.holes==='18'?'checked':''} onchange="selectHoles(${row.id}, '18')"> 18
+              </label>
+              <label class="holes-option">
+                <input type="radio" name="holes-${row.id}" value="9" ${row.holes==='9'?'checked':''} onchange="selectHoles(${row.id}, '9')"> 9
+              </label>
+            </div>
+            ${row.holes ? `<button class="holes-confirm-btn" onclick="confirmHoles(${row.id})">Confirm</button>` : ''}
+          </div>`;
+        })()}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Admin toggle ──
+function toggleAdmin() {
+  const cb = document.getElementById('admin-toggle');
+  if (cb.checked) {
+    const pwd = prompt('Enter admin password:');
+    if (pwd !== 'Putinspoodle') {
+      cb.checked = false;
+      toast('Incorrect password');
+      return;
+    }
+    isAdmin = true;
+  } else {
+    isAdmin = false;
+  }
+  document.getElementById('admin-panel').style.display = isAdmin ? 'block' : 'none';
+  document.getElementById('instruction-admin-edit').closest('.admin-section').style.display = isAdmin ? 'block' : 'none';
+  renderPool();
+  renderTable();
+}
+
+function setSyncStatus(msg, cls) {
+  const el = document.getElementById('sync-status');
+  el.textContent = msg;
+  el.className = 'sync-status' + (cls ? ' ' + cls : '');
+}
+
+// ── CSV download ──
+function downloadCSV() {
+  const title = 'TUESDAY MORNING WOMEN\'S LEAGUE AUG25 TOURNAMENT';
+  const header = ['NOT PLAYING', 'PLAYER', 'IN CART WITH', 'PLAYER', '18 OR 9 HOLES?'];
+  const dataRows = rows.map(r => [
+    r.notPlaying || '',
+    r.player1 || '',
+    r.player1 && r.player2 ? 'in cart with' : '',
+    r.player2 || '',
+    r.holes ? `${r.holes} holes` : ''
+  ]);
+  const csv = [
+    [`"${title}"`, '', '', '', ''],
+    header,
+    ...dataRows
+  ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'wind-up-game-signup.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded');
+}
+
+// ── Toast ──
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
